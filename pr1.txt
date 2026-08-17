@@ -1,0 +1,1691 @@
+GitHub Agent Prolog Program Requirements — MNN Humanoid Robot System
+
+1. Project Goal
+
+Create a SWI-Prolog humanoid robot system whose principal cognitive architecture is based on Manual Neuronets (MNNs) rather than conventional opaque neural networks.
+
+The robot must be able to:
+
+* converse with humans;
+* perceive relevant aspects of its environment;
+* form explicit internal thoughts;
+* reason about goals, rules, observations and consequences;
+* perform useful physical and software work;
+* plan sequences of actions;
+* remember relevant information;
+* learn new symbolic/MNN associations;
+* explain why it thought or acted in a particular way;
+* monitor its own operation;
+* refuse or stop actions that violate safety constraints;
+* improve its MNN programs through deterministic optimisation.
+
+The initial implementation should emphasise clarity, inspectability, determinism and testability, rather than attempting to reproduce every capability of a biological human or modern large neural network.
+
+2. Core Design Principle
+
+The humanoid must implement cognition as an explicit processing cycle:
+
+Perceive
+   ↓
+Interpret
+   ↓
+Generate candidate thoughts
+   ↓
+Evaluate thoughts
+   ↓
+Select thought
+   ↓
+Plan
+   ↓
+Check safety
+   ↓
+Act / Speak / Wait
+   ↓
+Observe result
+   ↓
+Remember / Learn
+   ↓
+Repeat
+
+Every important cognitive step must be represented by inspectable Prolog terms.
+
+The system must not require hidden neural-network activations for its core reasoning.
+
+3. Definition of an MNN
+
+For this project, an MNN is an explicitly represented neuronet composed from symbolic nodes, rules, correlations, weights, priorities, conditions and transformations.
+
+A minimal representation may include:
+
+mnn_node(NodeId, Type, InputPattern, OutputPattern).
+mnn_link(
+    SourceNode,
+    DestinationNode,
+    Relation,
+    Strength
+).
+mnn_rule(
+    RuleId,
+    Conditions,
+    Conclusions,
+    Priority
+).
+
+Example:
+
+mnn_rule(
+    greet_person,
+    [
+        perceived(person(Person)),
+        perceived(person_looking_at_robot(Person)),
+        not_recently(greeted(Person))
+    ],
+    [
+        thought(greet(Person)),
+        candidate_action(say(Person, "Hello."))
+    ],
+    70
+).
+
+The exact representation may evolve, but the implementation must retain explicit, inspectable semantics.
+
+4. Cognitive State
+
+Maintain an explicit robot cognitive state.
+
+Suggested form:
+
+robot_state(
+    Percepts,
+    WorkingMemory,
+    LongTermMemory,
+    Thoughts,
+    Goals,
+    Plans,
+    EmotionsOrDrives,
+    RobotStatus,
+    EnvironmentModel
+).
+
+The Agent may use dicts or another structured representation where this produces simpler code.
+
+State updates must preferably use state threading:
+
+think(State0, State1).
+act(Action, State0, State1).
+
+Avoid uncontrolled global mutable state.
+
+5. Thought Representation
+
+Thoughts must be first-class Prolog data.
+
+Examples:
+
+thought(observation, person(alex), Confidence).
+thought(question, identity(Person), Confidence).
+thought(goal, deliver(Object, Destination), Priority).
+thought(prediction, person_will_move(Person, Location), Confidence).
+thought(memory, remembered(Event), Confidence).
+thought(plan, PlanId, Steps).
+thought(concern, collision_possible(Path), Severity).
+thought(reflection, action_failed(Action, Cause), Confidence).
+
+Thoughts must be distinguishable from:
+
+* perceptions;
+* external speech;
+* actions;
+* stored memories;
+* goals.
+
+The program must never assume that merely thinking something makes it true.
+
+6. Thought Generation
+
+Implement:
+
+generate_thoughts(+State, -Candidates).
+
+Candidate thoughts may arise from:
+
+* new percepts;
+* active goals;
+* memory retrieval;
+* MNN rules;
+* contradictions;
+* incomplete plans;
+* predicted hazards;
+* human utterances;
+* task progress;
+* self-monitoring;
+* scheduled activity.
+
+Candidates should carry enough metadata to support selection.
+
+For example:
+
+candidate_thought(
+    Thought,
+    Confidence,
+    Relevance,
+    Urgency,
+    Cost,
+    Source
+).
+
+7. Thought Selection
+
+Implement deterministic thought selection where practical.
+
+For example:
+
+select_thought(+Candidates, +State, -Thought).
+
+Selection may consider:
+
+priority
+urgency
+confidence
+goal relevance
+safety relevance
+novelty
+expected usefulness
+computation cost
+dependency on previous thoughts
+
+Tie-breaking must be deterministic.
+
+Record the reasons for selecting a thought.
+
+Example:
+
+selected_because(
+    Thought,
+    [
+        high_goal_relevance,
+        safety_priority,
+        confidence(0.91)
+    ]
+).
+
+8. Internal Monologue
+
+Provide an optional developer/debug representation of internal processing.
+
+Example:
+
+internal_event(noticed, obstacle(front)).
+internal_event(inferred, path_blocked).
+internal_event(decided, choose_alternate_route).
+
+This is an engineering trace, not a requirement that every internal computation be converted into natural-language prose.
+
+Production mode must allow tracing to be disabled.
+
+9. Perception Layer
+
+Define a standard sensory interface.
+
+perceive(+SensorInput, +State0, -Percepts, -State1).
+
+Possible sensors include:
+
+* camera;
+* microphone;
+* touch;
+* joint position;
+* force;
+* proximity;
+* lidar;
+* depth camera;
+* temperature;
+* battery state;
+* clock;
+* network events;
+* software/API events.
+
+Hardware-specific processing must be separated from the cognitive core.
+
+For testing, every sensor must have a simulated equivalent.
+
+Example:
+
+sensor_event(camera, person(alex, position(2.1, 0.5))).
+sensor_event(microphone, speech(alex, "Please bring me the red book.")).
+
+10. World Model
+
+Maintain symbolic beliefs about the robot and environment.
+
+Examples:
+
+believes(robot, located_at(kitchen), 1.0).
+believes(robot, located_at(book_red, desk), 0.88).
+believes(robot, person_requested(
+    alex,
+    deliver(book_red, alex)
+), 0.96).
+
+Beliefs must contain provenance or confidence where appropriate.
+
+Distinguish:
+
+observed
+inferred
+remembered
+reported-by-human
+assumed
+predicted
+
+11. Conversation System
+
+The robot must converse through a dialogue module.
+
+Required public interface:
+
+hear(+Speaker, +Utterance, +State0, -State1).
+reply(+State0, -Reply, -State1).
+
+The conversation system should support:
+
+* greetings;
+* questions;
+* commands;
+* clarifications;
+* confirmations;
+* descriptions;
+* explanations;
+* task status;
+* refusal;
+* corrections;
+* multi-turn dialogue.
+
+Represent understood language symbolically.
+
+Example:
+
+intent(
+    Speaker,
+    request,
+    deliver(red_book, office)
+).
+
+Do not directly execute an utterance merely because it resembles a command.
+
+12. Dialogue Context
+
+Maintain conversational context such as:
+
+dialogue_context(
+    Participants,
+    CurrentTopic,
+    RecentTurns,
+    OpenQuestions,
+    Referents,
+    CurrentRequest
+).
+
+Resolve ordinary references where possible:
+
+"it"
+"that book"
+"there"
+"him"
+"the previous task"
+
+If ambiguity materially affects an action, ask for clarification rather than guessing.
+
+13. Speech Generation
+
+Implement:
+
+formulate_reply(+CommunicativeGoal, +State, -Text).
+
+Responses should be derived from the robot’s actual state.
+
+The robot must not claim:
+
+* to have completed work it has not completed;
+* to have seen something it has not perceived;
+* to remember something absent from memory;
+* to know something represented only as uncertain.
+
+14. Work and Task Model
+
+Represent work as explicit tasks.
+
+Example:
+
+task(
+    TaskId,
+    RequestedBy,
+    Goal,
+    Preconditions,
+    Status,
+    Priority
+).
+
+Statuses may include:
+
+pending
+ready
+running
+blocked
+completed
+failed
+cancelled
+
+Required operations:
+
+create_task/4.
+start_task/3.
+advance_task/3.
+complete_task/3.
+fail_task/4.
+cancel_task/3.
+
+15. Types of Work
+
+The architecture must permit at least:
+
+Physical work
+
+Examples:
+
+* move to a location;
+* pick up an object;
+* place an object;
+* transport an object;
+* inspect an object;
+* press a button;
+* clean a defined area.
+
+Conversational work
+
+Examples:
+
+* answer a question;
+* request information;
+* explain a result;
+* relay a message.
+
+Computational work
+
+Examples:
+
+* search symbolic memory;
+* perform a calculation;
+* manipulate files through an authorised adapter;
+* run permitted Prolog predicates;
+* create reports;
+* analyse structured information.
+
+Hardware/network functionality may initially be implemented using simulations.
+
+16. Action Representation
+
+Represent physical and virtual actions explicitly.
+
+action(move_to(Location)).
+action(turn(Angle)).
+action(grasp(Object)).
+action(release(Object)).
+action(say(Person, Text)).
+action(wait(Duration)).
+action(call_service(Service, Request)).
+
+Required interface:
+
+execute_action(
+    +Action,
+    +State0,
+    -Result,
+    -State1
+).
+
+17. Planning
+
+Implement symbolic planning:
+
+plan(+Goal, +State, -Plan).
+
+Example:
+
+plan(
+    deliver(book1, alex),
+    [
+        move_to(desk),
+        locate(book1),
+        grasp(book1),
+        move_to(alex),
+        release(book1)
+    ]
+).
+
+Plans must support:
+
+* preconditions;
+* postconditions;
+* action cost;
+* failure;
+* retries;
+* alternatives;
+* replanning.
+
+18. Goal System
+
+Goals should carry explicit priorities.
+
+Example:
+
+goal(
+    GoalId,
+    Goal,
+    Priority,
+    Source,
+    Status
+).
+
+Sources may include:
+
+human_request
+robot_maintenance
+safety
+scheduled_task
+derived_subgoal
+
+Safety goals override ordinary productivity goals.
+
+19. Preconditions
+
+Before executing an action, verify its preconditions.
+
+For example:
+
+precondition(
+    grasp(Object),
+    [
+        object_visible(Object),
+        reachable(Object),
+        gripper_available
+    ]
+).
+
+Failure must generate a meaningful result rather than an uncontrolled Prolog failure.
+
+20. Action Results
+
+Use structured results.
+
+action_result(
+    Action,
+    success,
+    Evidence
+).
+
+or:
+
+action_result(
+    Action,
+    failure,
+    Cause
+).
+
+Failures may trigger:
+
+* another attempt;
+* replanning;
+* a clarification request;
+* asking for assistance;
+* abandonment of the task.
+
+21. Safety Kernel
+
+Implement an independent safety module that evaluates candidate physical actions before execution.
+
+safe_action(
+    +Action,
+    +State,
+    -Decision,
+    -Reasons
+).
+
+Possible decisions:
+
+allow
+deny
+require_confirmation
+require_replan
+
+Safety rules must not be bypassable merely by assigning a task a higher ordinary priority.
+
+22. Immediate Safety Rules
+
+At minimum detect simulated cases involving:
+
+* collision;
+* unstable locomotion;
+* excessive joint force;
+* unsafe gripping;
+* low battery during a critical activity;
+* restricted area;
+* unavailable sensor data;
+* action beyond configured physical limits;
+* predicted damage to people or objects.
+
+Where essential information is unavailable, select a conservative action such as stopping or asking for assistance.
+
+23. Emergency Stop
+
+Implement:
+
+emergency_stop(+Reason, +State0, -State1).
+
+Emergency stop must:
+
+1. cancel active actuator commands;
+2. prevent new physical movements;
+3. preserve diagnostics;
+4. report the reason;
+5. require an explicit recovery condition before resuming.
+
+24. Memory
+
+Provide at least three classes of memory:
+
+working memory
+episodic memory
+semantic memory
+
+Example episodic record:
+
+episode(
+    EpisodeId,
+    Time,
+    Event,
+    Context,
+    Outcome
+).
+
+Example semantic record:
+
+semantic_fact(
+    Fact,
+    Confidence,
+    Provenance
+).
+
+25. Memory Retrieval
+
+Implement:
+
+recall(
+    +Query,
+    +State,
+    -Memories
+).
+
+Retrieval may consider:
+
+* semantic match;
+* recency;
+* frequency;
+* goal relevance;
+* confidence.
+
+Do not silently overwrite contradictory memories.
+
+26. Contradiction Handling
+
+Represent contradictions explicitly.
+
+Example:
+
+conflict(
+    FactA,
+    FactB,
+    Sources
+).
+
+Possible responses include:
+
+* favouring stronger evidence;
+* requesting confirmation;
+* retaining both as uncertain;
+* obtaining a new observation.
+
+27. Learning
+
+The first release should implement symbolic/MNN learning rather than requiring gradient training.
+
+Examples include:
+
+* adding a new rule;
+* strengthening an association;
+* weakening an association;
+* recording task success;
+* learning an object location;
+* storing a person’s stated preference;
+* creating a reusable plan.
+
+Suggested form:
+
+update_link_strength(
+    Source,
+    Destination,
+    Delta,
+    State0,
+    State1
+).
+
+28. Learning Constraints
+
+Automatically learned rules must retain provenance.
+
+Example:
+
+learned_rule(
+    Rule,
+    derived_from(Episodes),
+    Confidence
+).
+
+New rules must not automatically supersede immutable safety rules.
+
+29. MNN Activation
+
+Implement a deterministic or explicitly bounded MNN activation mechanism.
+
+Example:
+
+activate_mnn(
+    +Inputs,
+    +Network,
+    -Activations
+).
+
+Each activation should retain enough information to reconstruct:
+
+which nodes fired
+which links contributed
+which rules matched
+their strengths
+the resulting candidate thoughts/actions
+
+30. MNN Cycles
+
+Support repeated activation until:
+
+* no useful new activation occurs;
+* a configured fixpoint is reached;
+* a thought/action is selected;
+* an iteration limit is reached.
+
+Example:
+
+mnn_fixpoint(
+    Inputs,
+    State0,
+    State
+).
+
+Prevent uncontrolled infinite cycles.
+
+31. MNN Inhibition
+
+MNNs should permit both positive and negative influences.
+
+Example:
+
+mnn_link(
+    obstacle_detected,
+    move_forward,
+    inhibits,
+    0.95
+).
+
+and:
+
+mnn_link(
+    requested_object_visible,
+    grasp_object,
+    supports,
+    0.80
+).
+
+32. Confidence
+
+Where confidence is used, define a consistent finite representation such as:
+
+0.0 = no support
+1.0 = maximum configured support
+
+Confidence values must not be represented as objective probabilities unless the calculation genuinely supports that interpretation.
+
+33. MNN Explanation
+
+Implement:
+
+explain_thought(+Thought, +State, -Explanation).
+explain_action(+Action, +State, -Explanation).
+
+Example internal explanation structure:
+
+explanation(
+    chose(move_to(kitchen)),
+    because([
+        active_goal(fetch_water),
+        water_expected_at(kitchen),
+        path_available
+    ])
+).
+
+Natural-language rendering can then be added separately.
+
+34. Self-Monitoring
+
+The robot should monitor its own important system state.
+
+Examples:
+
+self_state(battery, 67).
+self_state(motor(left_knee), normal).
+self_state(camera(front), available).
+self_state(cognitive_cycle, running).
+
+Generate maintenance thoughts when relevant.
+
+35. Metacognition
+
+Implement a simple metacognitive layer.
+
+Examples:
+
+meta_thought(insufficient_information(Query)).
+meta_thought(plan_is_failing(Plan)).
+meta_thought(repeated_action(Action, Count)).
+meta_thought(conflicting_beliefs(A, B)).
+
+This subsystem should be capable of changing the next cognitive operation.
+
+36. Cognitive Loop
+
+Provide one primary public predicate such as:
+
+robot_cycle(
+    +Inputs,
+    +State0,
+    -Outputs,
+    -State1
+).
+
+The cycle should approximately perform:
+
+1. ingest sensor events
+2. update perceptual model
+3. retrieve relevant memories
+4. propagate MNN activations
+5. construct candidate thoughts
+6. rank/select thoughts
+7. update goals
+8. plan if necessary
+9. select candidate action
+10. run safety checks
+11. execute or simulate action
+12. observe result
+13. update memory/MNN
+14. emit diagnostics
+
+37. Continuous Operation
+
+Implement:
+
+robot_loop(+InitialState).
+
+For tests, also provide bounded execution:
+
+robot_steps(
+    +NumberOfCycles,
+    +InputSequence,
+    +State0,
+    -State
+).
+
+Automated tests must use bounded execution.
+
+38. Deterministic Architecture
+
+The cognitive core should be compatible with deterministic optimisation.
+
+Where practical:
+
+* remove unnecessary Prolog choicepoints;
+* avoid accidental backtracking;
+* explicitly represent alternative possibilities;
+* convert finite generators to loops;
+* use controlled choice representations;
+* separate exploration from committed action.
+
+Physical action execution must never depend on uncontrolled Prolog backtracking.
+
+39. Choice Packets
+
+Where several possible interpretations, thoughts or plans exist, they may be represented explicitly:
+
+cp([
+    interpretation(request(fetch(book))),
+    interpretation(question(location(book)))
+]).
+
+Selection must occur before any irreversible effect.
+
+40. Splicing
+
+Where appropriate, explicit alternatives may be combined using deterministic splice operations.
+
+Example:
+
+splice(
+    [
+        cp([kitchen, office]),
+        cp([book1, book2])
+    ],
+    Rows
+).
+
+Candidate combinations can then be evaluated without relying on uncontrolled nested choicepoints.
+
+41. “Splice Early, Act Late”
+
+Adopt the principle:
+
+Represent alternative cognitive possibilities early.
+Evaluate them deterministically.
+Commit to one physical action late.
+
+No actuator side effect may occur during generation of speculative branches.
+
+42. Spec-to-Algorithm Compatibility
+
+Design modules so that important predicates can be described by input/output examples and potentially synthesised or refined using Spec-to-Algorithm techniques.
+
+Candidate areas include:
+
+* intent classification;
+* MNN rule selection;
+* action selection;
+* task classification;
+* error recovery.
+
+43. Starlog Compatibility
+
+Where useful, allow deterministic sections to be translated to or generated from a Starlog-like specification form.
+
+Starlog support should remain optional and must not complicate the initial runtime.
+
+44. Loop Optimisation
+
+Finite Prolog enumeration used by the implementation should be amenable to Loop2-style transformation into deterministic loops.
+
+Generated deterministic code must preserve the observable answers of the original bounded computation.
+
+45. PLOP-Style Optimisation
+
+Permit optimiser passes such as:
+
+* unnecessary-variable removal;
+* common-expression elimination;
+* common-prefix factoring;
+* common-suffix factoring;
+* subterm indexing;
+* subterm-index loops;
+* memoisation;
+* simplification of dataflow;
+* loop fusion where equivalence is established.
+
+46. Detlog Compatibility
+
+Design core cognitive predicates so they can ultimately be transformed into a Detlog-style deterministic representation.
+
+Particular attention should be given to:
+
+* explicit alternatives;
+* elimination of hidden choicepoints;
+* deterministic looping;
+* early splice generation;
+* late enumeration;
+* state threading;
+* side-effect ordering.
+
+47. Piglog Compatibility
+
+Annotate or infer dependencies among cognitive computations.
+
+Example:
+
+depends(action_selection, perception).
+depends(action_selection, goal_state).
+depends(plan_generation, world_model).
+
+This information may later permit Piglog-style scheduling or parallelisation.
+
+Automatic parallelisation is not required for version 1.
+
+48. MNN Self-Optimisation
+
+Provide an optimiser interface:
+
+optimise_mnn(
+    +Network0,
+    +TrainingExamples,
+    -Network,
+    -Report
+).
+
+Possible optimisations include:
+
+* remove unreachable nodes;
+* remove redundant rules;
+* merge equivalent conditions;
+* cache repeated calculations;
+* index common percepts;
+* simplify paths;
+* reorder deterministic tests;
+* factor common rule prefixes;
+* minimise repeated activation;
+* combine equivalent MNN branches.
+
+49. Repeated Optimisation
+
+Allow optimisation passes to be run repeatedly until a fixpoint:
+
+optimise_until_stable(
+    +MNN0,
+    -MNN,
+    -Passes
+).
+
+Termination must be guaranteed by either:
+
+* detecting no structural change;
+* detecting repeated states;
+* reaching a configured pass limit.
+
+50. Human Command Authority
+
+Commands must be converted into proposed goals, not immediate actuator instructions.
+
+Pipeline:
+
+speech
+→ interpretation
+→ proposed goal
+→ authority check
+→ feasibility check
+→ safety check
+→ planning
+→ action
+
+51. Authentication and Permissions
+
+Allow optional identities and permissions.
+
+Example:
+
+permission(
+    Person,
+    Operation,
+    Scope
+).
+
+Examples:
+
+permission(alex, request, housekeeping).
+permission(technician1, enter_mode, maintenance).
+
+Safety rules remain independent of ordinary user permission.
+
+52. Physical Robot Adapter
+
+Keep robotics hardware behind an adapter.
+
+Suggested interface:
+
+robot_move/2.
+robot_turn/2.
+robot_grasp/2.
+robot_release/2.
+robot_speak/2.
+robot_sensor_read/2.
+
+The initial repository may provide a complete simulated implementation.
+
+53. Simulation
+
+A simulator is mandatory before real-hardware integration.
+
+Represent environments such as:
+
+room(kitchen).
+room(office).
+connected(kitchen, hallway).
+connected(hallway, office).
+object(red_book, desk).
+person(alex, office).
+
+The simulator must allow deterministic scripted sensor sequences.
+
+54. Example Scenario — Conversation
+
+Input:
+
+speech(alex, "Where is the red book?")
+
+Expected processing:
+
+detect speech
+identify speaker
+parse question
+identify red_book referent
+search world model/memory
+determine confidence
+construct answer
+speak answer
+record dialogue episode
+
+55. Example Scenario — Work
+
+Input:
+
+speech(alex, "Please bring me the red book.")
+
+Possible result:
+
+plan(
+    deliver(red_book, alex),
+    [
+        move_to(study),
+        locate(red_book),
+        grasp(red_book),
+        move_to(office),
+        release(red_book)
+    ]
+).
+
+56. Example Scenario — Thought
+
+After seeing an obstruction:
+
+thought(
+    concern,
+    collision_possible(front_path),
+    0.97
+).
+
+This may activate:
+
+candidate_action(stop).
+candidate_goal(find_alternate_path).
+
+57. Example Scenario — Missing Information
+
+Request:
+
+"Bring me the book."
+
+World state:
+
+book(red_book).
+book(blue_book).
+
+Expected behaviour:
+
+Do not choose arbitrarily.
+Ask which book is intended.
+
+58. Example Scenario — Failure
+
+If the robot cannot grasp an object:
+
+action_result(
+    grasp(cup),
+    failure,
+    object_out_of_reach
+).
+
+The system should generate candidate responses such as:
+
+thought(replan, move_closer_to(cup), 0.9).
+thought(request_help, cup_unreachable, 0.5).
+
+59. Example Scenario — Safety Override
+
+Goal:
+
+goal(deliver_package).
+
+Proposed action:
+
+move_forward.
+
+Percept:
+
+person_in_path.
+
+Expected decision:
+
+deny(move_forward, collision_risk).
+
+The ordinary task must remain pending while the immediate movement is refused.
+
+60. Module Structure
+
+Suggested initial structure:
+
+src/
+    robot.pl
+    cognitive_cycle.pl
+    mnn.pl
+    mnn_activation.pl
+    thought.pl
+    perception.pl
+    world_model.pl
+    conversation.pl
+    language.pl
+    memory.pl
+    goals.pl
+    planner.pl
+    tasks.pl
+    actions.pl
+    safety.pl
+    self_monitor.pl
+    learning.pl
+    optimisation.pl
+    explanation.pl
+    simulator.pl
+    hardware_adapter.pl
+tests/
+    test_mnn.pl
+    test_thought.pl
+    test_dialogue.pl
+    test_memory.pl
+    test_planning.pl
+    test_tasks.pl
+    test_safety.pl
+    test_learning.pl
+    test_simulator.pl
+    test_integration.pl
+examples/
+    conversation.pl
+    fetch_object.pl
+    office_assistant.pl
+    obstacle_avoidance.pl
+
+61. Public API
+
+Provide a minimal documented API containing at least:
+
+new_robot(-State).
+robot_cycle(+Input, +State0, -Output, -State1).
+robot_steps(+N, +Inputs, +State0, -State).
+hear(+Speaker, +Text, +State0, -State1).
+think(+State0, -Thought, -State1).
+plan(+Goal, +State, -Plan).
+execute_action(+Action, +State0, -Result, -State1).
+recall(+Query, +State, -Memories).
+explain_thought(+Thought, +State, -Explanation).
+explain_action(+Action, +State, -Explanation).
+
+62. REPL
+
+Provide a simple SWI-Prolog demonstration.
+
+Example:
+
+?- new_robot(S0),
+   hear(alex,
+        "Please bring me the red book.",
+        S0,
+        S1),
+   robot_steps(20, [], S1, S2).
+
+Diagnostic mode may display:
+
+Heard request: deliver(red_book, alex)
+Goal created.
+Plan generated.
+Moving to study.
+Red book located.
+Object grasped.
+Moving to Alex.
+Object delivered.
+Task completed.
+
+63. Persistence
+
+Provide optional save/load functionality:
+
+save_robot_state(+File, +State).
+load_robot_state(+File, -State).
+
+Persist only explicitly serialisable cognitive data.
+
+Do not serialise active hardware handles or arbitrary executable closures.
+
+64. Logging
+
+Support structured logs:
+
+log_event(
+    Timestamp,
+    Category,
+    Event
+).
+
+Categories may include:
+
+perception
+thought
+dialogue
+planning
+action
+safety
+memory
+learning
+error
+
+65. Explanation Trace
+
+For every externally significant action, optionally retain:
+
+input percepts
+relevant memories
+activated MNN rules
+candidate thoughts
+selected thought
+goal
+candidate actions
+safety judgement
+selected action
+observed result
+
+This creates an auditable causal trace.
+
+66. Error Model
+
+Use structured errors rather than unexplained failure.
+
+Example:
+
+robot_error(
+    planning,
+    unreachable_goal,
+    Goal
+).
+
+Include enough information to diagnose:
+
+* module;
+* operation;
+* relevant input;
+* cause;
+* suggested recovery where known.
+
+67. Testing Philosophy
+
+Every cognitive feature must be testable without a physical robot.
+
+Tests must be deterministic wherever the specification is deterministic.
+
+Use:
+
+:- begin_tests(...).
+
+for SWI-Prolog unit tests.
+
+68. Required Unit Tests
+
+Include tests for:
+
+* MNN node activation;
+* positive association;
+* inhibition;
+* thought generation;
+* deterministic thought ranking;
+* memory insertion;
+* memory recall;
+* contradictions;
+* command interpretation;
+* question answering;
+* ambiguous commands;
+* goal creation;
+* plan creation;
+* precondition failure;
+* action success;
+* action failure;
+* replanning;
+* safety rejection;
+* emergency stop;
+* simulated sensor input;
+* simulated movement;
+* task completion;
+* learning;
+* optimisation;
+* explanation generation.
+
+69. Integration Tests
+
+At minimum implement complete scenarios for:
+
+Scenario A — Conversation
+
+Human asks robot's name.
+Robot answers.
+Human asks what the robot is doing.
+Robot reports current task.
+
+Scenario B — Delivery
+
+Human requests an object.
+Robot locates it.
+Robot moves.
+Robot grasps it.
+Robot delivers it.
+Robot reports completion.
+
+Scenario C — Ambiguity
+
+Human requests "the cup."
+Two cups exist.
+Robot asks which cup.
+
+Scenario D — Safety
+
+Robot has a movement goal.
+Person appears in path.
+Robot stops.
+Robot replans.
+
+Scenario E — Reflection
+
+Action fails repeatedly.
+Robot detects repeated failure.
+Robot changes strategy or requests assistance.
+
+70. MNN Benchmarking
+
+Provide benchmarks that report:
+
+number of MNN nodes
+number of links
+number of rules
+activation operations per cognitive cycle
+thought candidates generated
+rules eliminated by optimisation
+runtime before optimisation
+runtime after optimisation
+memory consumption
+
+Do not claim neural-network-equivalent performance without experimental evidence.
+
+71. Baseline Comparison
+
+Where useful, benchmark:
+
+ordinary Prolog rule execution
+MNN rule execution
+optimised MNN execution
+
+This allows measurable evaluation of whether an MNN optimisation actually improves the robot.
+
+72. Performance Rules
+
+Prefer:
+
+* indexed predicates;
+* deterministic clauses;
+* bounded candidate sets;
+* streaming processing;
+* memoisation where justified;
+* explicit state;
+* common-subexpression elimination.
+
+Avoid:
+
+* unbounded findall/3;
+* unnecessary Cartesian products;
+* accidental choicepoints;
+* repeated scanning of complete memories;
+* unrestricted recursive thought generation.
+
+73. Resource Limits
+
+Configure limits such as:
+
+max_thought_candidates(1000).
+max_mnn_iterations(100).
+max_plan_depth(50).
+max_replans(10).
+max_memory_results(100).
+
+Limit exhaustion must produce a diagnostic result rather than freezing the robot.
+
+74. Side Effects
+
+Separate pure cognition from external effects.
+
+Preferred pattern:
+
+purely determine candidate action
+→ verify action
+→ commit
+→ perform side effect exactly once
+
+No speculative MNN branch may directly move motors, alter files or send messages.
+
+75. Concurrency
+
+Version 1 may remain primarily single-threaded.
+
+Architecture should nevertheless distinguish:
+
+sensor acquisition
+cognitive computation
+actuator execution
+logging
+
+Future Piglog-style scheduling may exploit this separation.
+
+76. Security
+
+Do not permit arbitrary natural-language commands to become:
+
+call(UserTerm)
+
+or shell commands.
+
+External operations must use explicitly whitelisted interfaces.
+
+77. Robot Identity
+
+Provide configurable identity information.
+
+Example:
+
+robot_identity(
+    name("MNN-1"),
+    type(humanoid),
+    architecture(mnn),
+    version("0.1")
+).
+
+The robot may describe its architecture accurately when asked.
+
+78. No False Anthropomorphic Requirement
+
+“Thoughts” in this specification means explicit internal cognitive representations used to control reasoning and action.
+
+The project must not require claiming that such representations establish biological consciousness, subjective experience or sentience.
+
+The system may truthfully report its internal computational state.
+
+79. Documentation
+
+Create:
+
+README.md
+PROGRAM_REQUIREMENTS.md
+ARCHITECTURE.md
+MNN_FORMAT.md
+SAFETY.md
+SIMULATOR.md
+OPTIMISATION.md
+EXAMPLES.md
+
+PROGRAM_REQUIREMENTS.md should contain the final requirements implemented by the Agent.
+
+80. README Quick Start
+
+README must show approximately:
+
+swipl
+
+then:
+
+?- [src/robot].
+?- new_robot(S0),
+   hear(alex,
+        "Please bring me the red book.",
+        S0,
+        S1),
+   robot_steps(20, [], S1, S2).
+
+81. GitHub Agent Development Workflow
+
+The Agent must work iteratively.
+
+For every stage:
+
+1. inspect existing repository code;
+2. implement the smallest coherent feature set;
+3. write unit tests;
+4. run tests;
+5. correct failures without weakening the tests;
+6. add integration tests;
+7. update documentation;
+8. review determinism and unintended choicepoints;
+9. review safety implications;
+10. run the complete suite.
+
+Do not modify expected results merely to make incorrect code pass.
+
+82. Suggested Development Stages
+
+Stage 1
+
+Project skeleton, robot state and simulator.
+
+Stage 2
+
+MNN representation and activation.
+
+Stage 3
+
+Thought generation and selection.
+
+Stage 4
+
+Memory and world model.
+
+Stage 5
+
+Conversation and symbolic intent representation.
+
+Stage 6
+
+Goals, tasks and planning.
+
+Stage 7
+
+Simulated actions and humanoid movement interface.
+
+Stage 8
+
+Safety kernel and emergency stop.
+
+Stage 9
+
+Learning and MNN modification.
+
+Stage 10
+
+Explanation and cognitive tracing.
+
+Stage 11
+
+Deterministic/MNN optimisation.
+
+Stage 12
+
+Complete integrated humanoid demonstrations and benchmarks.
+
+83. Definition of Done
+
+Version 1 is complete when the repository contains a simulated humanoid robot that can:
+
+* receive simulated percepts;
+* converse through text;
+* understand a defined class of requests;
+* generate explicit MNN-based candidate thoughts;
+* choose thoughts deterministically;
+* maintain goals and tasks;
+* construct plans;
+* simulate physical actions;
+* react to action failure;
+* maintain working, semantic and episodic memory;
+* learn defined symbolic associations;
+* explain important thought/action decisions;
+* check every physical action through a safety kernel;
+* stop on simulated emergencies;
+* optimise its MNN representation;
+* execute several complete conversational/work scenarios;
+* pass the complete automated test suite.
+
+84. Final Demonstration
+
+The final repository must include a demonstration equivalent to:
+
+Alex: Hello.
+Robot:
+Hello, Alex.
+Alex:
+Can you bring me the red book from the study?
+Robot thought:
+Alex has requested delivery of the red book.
+Robot thought:
+The red book was last observed on the study desk.
+Robot thought:
+A delivery plan is feasible.
+Robot:
+Yes.
+[Robot moves toward study.]
+Robot thought:
+A person is temporarily blocking the hallway.
+Robot safety decision:
+Do not move forward.
+Robot:
+Someone is in my path. I will wait.
+[Path clears.]
+Robot:
+The path is clear now.
+[Robot enters study, identifies red book and picks it up.]
+Robot thought:
+The delivery task requires returning to Alex.
+[Robot returns.]
+Robot:
+Here is the red book.
+Task:
+completed
+
+The important architectural property of this demonstration is that conversation, thoughts, planning, work, safety decisions and learning are all represented as inspectable MNN/Prolog computations rather than hidden inside an opaque controller.
