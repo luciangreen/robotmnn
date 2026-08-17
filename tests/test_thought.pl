@@ -1,0 +1,24 @@
+:- begin_tests(thought).
+:- use_module('../src/robot').
+:- use_module('../src/thought').
+:- use_module('../src/goals').
+
+test(thought_generation) :-
+    new_robot(S0),
+    hear(alex, "Hello.", S0, S1),
+    generate_thoughts(S1, Candidates),
+    member(candidate_thought(thought(dialogue, greet(alex), _), _, _, _, _, _), Candidates).
+
+test(deterministic_thought_ranking) :-
+    select_thought([
+        candidate_thought(thought(goal, a, 0.8), 0.8, 0.9, 0.9, 0.2, test),
+        candidate_thought(thought(goal, b, 0.7), 0.7, 0.8, 0.5, 0.2, test)
+    ], _, Thought),
+    Thought = thought(goal, a, 0.8).
+
+test(goal_creation_from_thought) :-
+    new_robot(S0),
+    derive_goals_from_thought(thought(goal, deliver(red_book, alex), 0.8), S0, S1),
+    robot:plan(deliver(red_book, alex), S1, _Plan).
+
+:- end_tests(thought).
