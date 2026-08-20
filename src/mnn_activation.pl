@@ -47,7 +47,7 @@ mnn_fixpoint(Inputs, State0, State, Iterations) :-
     mnn_fixpoint(Inputs, State0, State, 0, Iterations).
 
 mnn_fixpoint([], State, State, Iterations, Iterations) :- !.
-mnn_fixpoint(Inputs, State0, State, Iter0, Iterations) :-
+mnn_fixpoint(_Inputs, State0, State, Iter0, Iterations) :-
     Iter0 < 5,
     Iter1 is Iter0 + 1,
     State = State0,

@@ -2,6 +2,7 @@
 :- use_module('../src/robot').
 :- use_module('../src/thought').
 :- use_module('../src/goals').
+:- use_module('../src/explanation').
 
 test(thought_generation) :-
     new_robot(S0),
@@ -20,5 +21,11 @@ test(goal_creation_from_thought) :-
     new_robot(S0),
     derive_goals_from_thought(thought(goal, deliver(red_book, alex), 0.8), S0, S1),
     robot:plan(deliver(red_book, alex), S1, _Plan).
+
+test(explanation_generation) :-
+    new_robot(S0),
+    hear(alex, "Please bring me the red book.", S0, S1),
+    think(S1, Thought, S2),
+    explain_thought(Thought, S2, explanation(chose(Thought), because(_))).
 
 :- end_tests(thought).

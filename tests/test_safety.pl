@@ -24,4 +24,10 @@ test(action_failure_from_safety) :-
     set_env(S0, Env, S1),
     execute_action(move_to(office), S1, action_result(move_to(office), failure, safety_denied(_)), _).
 
+test(action_success) :-
+    new_robot(S0),
+    execute_action(move_to(study), S0, action_result(move_to(study), success, moved(study)), S1),
+    get_env(S1, Env),
+    env_robot_location(Env, study).
+
 :- end_tests(safety).
