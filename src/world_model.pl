@@ -34,6 +34,13 @@ update_one(sensor_event(proximity, obstacle(Path)), State0, State1) :-
     get_env(S1, Env0),
     env_add_obstacle(Path, Env0, Env),
     set_env(S1, Env, State1).
+update_one(sensor_event(proximity, clear(Path)), State0, State1) :-
+    get_semantic(State0, Semantic0),
+    exclude(obstacle_belief_for(Path), Semantic0, Semantic),
+    set_semantic(State0, Semantic, S1),
+    get_env(S1, Env0),
+    env_remove_obstacle(Path, Env0, Env),
+    set_env(S1, Env, State1).
 update_one(sensor_event(battery, level(Level)), State0, State1) :-
     add_belief(observed(battery(Level)), 1.0, observed(battery), State0, S1),
     get_env(S1, Env0),
@@ -123,6 +130,8 @@ detect_conflicts(State, Conflicts) :-
 extract_object_location(observed(object_at(Object, Location)), Object, Location).
 extract_object_location(learned(object_at(Object, Location)), Object, Location).
 extract_object_location(object_at(Object, Location), Object, Location).
+
+obstacle_belief_for(Path, semantic_fact(observed(obstacle(Path)), _, _)).
 
 flatten_once(Lists, Flat) :-
     findall(Item, (member(L, Lists), (is_list(L) -> member(Item, L) ; Item = L)), Flat).
