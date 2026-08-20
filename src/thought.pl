@@ -67,14 +67,23 @@ contradiction_candidates(State, Candidates) :-
 candidate_score(candidate_thought(_, Confidence, Relevance, Urgency, Cost, _), Score) :-
     Score is (Confidence * 0.35) + (Relevance * 0.3) + (Urgency * 0.4) - Cost.
 
+select_thought(Candidates, State, Thought) :-
+    include(is_concern_candidate, Candidates, Concerns),
+    Concerns \= [], !,
+    select_best_thought(Concerns, Thought).
 select_thought(Candidates, _State, Thought) :-
+    select_best_thought(Candidates, Thought).
+select_thought([], _, thought(idle, wait, 1.0)).
+
+is_concern_candidate(candidate_thought(thought(concern, _, _), _, _, _, _, _)).
+
+select_best_thought(Candidates, Thought) :-
     findall(Key-candidate_thought(T, C, R, U, Cost, Source),
         ( member(candidate_thought(T, C, R, U, Cost, Source), Candidates),
           candidate_score(candidate_thought(T, C, R, U, Cost, Source), Score),
           Key is -Score ),
         Keyed),
-    keysort(Keyed, [ _-candidate_thought(Thought, _, _, _, _, _) | _ ]).
-select_thought([], _, thought(idle, wait, 1.0)).
+    keysort(Keyed, [_-candidate_thought(Thought, _, _, _, _, _)|_]).
 
 think(State0, Thought, State1) :-
     generate_thoughts(State0, Candidates),
