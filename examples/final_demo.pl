@@ -51,6 +51,7 @@ demo :-
 
     % --- Report outcome ---
     get_env(S7, Env7),
+    % Alex is at office per the default simulator; the book is released there after delivery.
     ( env_object_location(Env7, red_book, office)
     ->  format("Robot thought:~n  The delivery task is complete.~n"),
         format("[Robot enters study, grasps red book, moves to Alex, releases it.]~n"),
