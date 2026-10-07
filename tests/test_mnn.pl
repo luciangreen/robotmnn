@@ -42,6 +42,14 @@ test(mnn_fixpoint_stops_when_no_new_conclusions) :-
     Iterations =:= 1,
     State2 = State1.
 
+test(inhibitory_link_does_not_activate_its_destination) :-
+    Network = mnn([], [mnn_link(obstacle, move_forward, inhibits, 0.95)], [
+        mnn_rule(move_when_enabled, [perceived(move_forward)], [candidate_action(move_forward)], 10)
+    ], meta(test, version(1))),
+    activate_mnn_fixpoint([obstacle], Network, Activations, _),
+    member(link_activation(move_forward, inhibits, 0.95, obstacle), Activations),
+    \+ member(rule_activation(move_when_enabled, _, _, _, _), Activations).
+
 test(mnn_fixpoint_bounds_cycles) :-
     new_robot(State0),
     Network = mnn([], [], [

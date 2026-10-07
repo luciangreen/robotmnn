@@ -83,8 +83,11 @@ activation_inputs([], []).
 activation_inputs([rule_activation(_, _, _, Conclusions, _)|Rest], Inputs) :-
     activation_inputs(Rest, RestInputs),
     append(Conclusions, RestInputs, Inputs).
+activation_inputs([link_activation(Destination, supports, Strength, Source)|Rest],
+        [Destination, link_effect(Destination, supports, Strength, Source)|Inputs]) :- !,
+    activation_inputs(Rest, Inputs).
 activation_inputs([link_activation(Destination, Effect, Strength, Source)|Rest],
-        [Destination, link_effect(Destination, Effect, Strength, Source)|Inputs]) :-
+        [link_effect(Destination, Effect, Strength, Source)|Inputs]) :-
     activation_inputs(Rest, Inputs).
 
 activated_thoughts(Activations, Thoughts) :-
