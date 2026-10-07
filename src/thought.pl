@@ -8,14 +8,14 @@
 :- use_module(library(lists)).
 :- use_module(state_utils).
 :- use_module(world_model).
-:- use_module(mnn_activation).
+:- use_module(mnn_activation, [activate_mnn_fixpoint/4, activation_conclusions/2]).
 :- use_module(self_monitor).
 :- use_module(explanation).
 
 generate_thoughts(State, Candidates) :-
     state_inputs(State, Inputs),
     get_mnn(State, MNN),
-    activate_mnn(Inputs, MNN, Activations),
+    activate_mnn_fixpoint(Inputs, MNN, Activations, _),
     findall(Candidate,
         ( member(Activation, Activations),
           activation_conclusions(Activation, Conclusions),
