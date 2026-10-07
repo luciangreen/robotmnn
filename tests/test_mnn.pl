@@ -52,6 +52,21 @@ test(mnn_fixpoint_bounds_cycles) :-
     mnn_fixpoint([seed], State1, _, Iterations),
     Iterations =< 5.
 
+test(mnn_fixpoint_honors_iteration_limit) :-
+    new_robot(State0),
+    Network = mnn([], [],
+        [ mnn_rule(first, [perceived(seed)], [stage1], 10),
+          mnn_rule(second, [perceived(stage1)], [stage2], 10),
+          mnn_rule(third, [perceived(stage2)], [stage3], 10),
+          mnn_rule(fourth, [perceived(stage3)], [stage4], 10),
+          mnn_rule(fifth, [perceived(stage4)], [stage5], 10),
+          mnn_rule(sixth, [perceived(stage5)], [stage6], 10)
+        ],
+        meta(test, version(1))),
+    set_mnn(State0, Network, State1),
+    mnn_fixpoint([seed], State1, _, Iterations),
+    Iterations =:= 5.
+
 test(optimisation) :-
     default_mnn(MNN0),
     optimise_mnn(MNN0, [], _MNN, Report),

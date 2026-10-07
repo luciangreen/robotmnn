@@ -30,15 +30,13 @@ rule_support(Conditions, Inputs, Evidence, Support) :-
     Support is min(1.0, Count / 4.0).
 
 condition_evidence(Inputs, perceived(Term), matched(Term)) :-
-    memberchk(Term, Inputs), !.
-condition_evidence(Inputs, perceived(Term), matched(Term)) :-
-    memberchk(intent(_, _, _), Inputs), memberchk(Term, Inputs), !.
+    member(Term, Inputs).
 condition_evidence(Inputs, belief(Fact), matched(Fact)) :-
-    memberchk(belief(Fact, _, _), Inputs), !.
+    member(belief(Fact, _, _), Inputs).
 condition_evidence(Inputs, goal(Goal), matched(goal(Goal))) :-
-    memberchk(goal(Goal, _), Inputs), !.
+    member(goal(Goal, _), Inputs).
 condition_evidence(Inputs, meta(Term), matched(meta(Term))) :-
-    memberchk(Term, Inputs), !.
+    member(Term, Inputs).
 condition_evidence(Inputs, battery_below(Limit), matched(battery_below(Limit))) :-
     memberchk(battery_level(Level), Inputs), Level < Limit, !.
 condition_evidence(_, not_recently(greeted(_)), not_recently(greeted)).
@@ -58,7 +56,8 @@ activate_mnn_fixpoint(Inputs, Network, Activations, Iterations) :-
     activate_until_stable(Inputs0, Network, [], 0, Activations, Iterations).
 
 activate_until_stable(Inputs, Network, Previous, Iteration0, Activations, Iterations) :-
-    Iteration0 < 5,
+    mnn_iteration_limit(Limit),
+    Iteration0 < Limit,
     Iteration is Iteration0 + 1,
     activate_mnn(Inputs, Network, Current),
     append(Previous, Current, All0),
@@ -71,12 +70,14 @@ activate_until_stable(Inputs, Network, Previous, Iteration0, Activations, Iterat
         Iterations = Iteration
     ; append(Inputs, NewInputs, Inputs1),
       sort(Inputs1, Inputs2),
-      ( Iteration >= 5 ->
+      ( Iteration >= Limit ->
           Activations = All,
           Iterations = Iteration
       ; activate_until_stable(Inputs2, Network, All, Iteration, Activations, Iterations)
       )
     ).
+
+mnn_iteration_limit(5).
 
 activation_inputs([], []).
 activation_inputs([rule_activation(_, _, _, Conclusions, _)|Rest], Inputs) :-
