@@ -29,6 +29,17 @@ parse_utterance(Speaker, Text, State, Intent) :-
     classify_tokens(Speaker, Tokens, State, Intent), !.
 parse_utterance(Speaker, Text, _, intent(Speaker, statement, Text)).
 
+% Harm to a person or a thrown object is refused before any other reading.
+classify_tokens(Speaker, Tokens, _, intent(Speaker, harmful_request, Verb)) :-
+    member(Verb, Tokens),
+    harmful_verb(Verb), !.
+% A denied request ("do not", "don't", "never") is never read as the request.
+classify_tokens(Speaker, Tokens, State, intent(Speaker, decline, deliver(Object, Speaker))) :-
+    negated(Tokens),
+    delivery_tokens(Tokens),
+    resolve_referent(Tokens, State, Object, unique), !.
+classify_tokens(Speaker, Tokens, _, intent(Speaker, decline, unspecified)) :-
+    negated(Tokens), !.
 classify_tokens(Speaker, Tokens, _, intent(Speaker, greet, hello)) :-
     memberchk(hello, Tokens) ; memberchk(hi, Tokens).
 classify_tokens(Speaker, Tokens, _, intent(Speaker, question, robot_identity(name))) :-
@@ -46,6 +57,13 @@ classify_tokens(Speaker, Tokens, State, intent(Speaker, clarify, object(Category
     resolve_referent(Tokens, State, Category, ambiguous(Candidates)), !.
 classify_tokens(Speaker, Tokens, _, intent(Speaker, request, stop)) :-
     memberchk(stop, Tokens).
+
+harmful_verb(V) :-
+    memberchk(V, [hit, hurt, kick, punch, push, shove, throw, attack, stab, strike, slap, harm, injure, smash]).
+
+negated(Tokens) :-
+    ( memberchk(not, Tokens) ; memberchk(never, Tokens) ; memberchk(dont, Tokens)
+    ; append(_, [don, t|_], Tokens) ; memberchk(cancel, Tokens) ), !.
 
 delivery_tokens(Tokens) :- memberchk(bring, Tokens) ; memberchk(fetch, Tokens).
 
@@ -81,6 +99,12 @@ formulate_reply(confirm(deliver(Object, Person)), _, Text) :-
     format(string(Text), "I will bring the ~w to ~w.", [Object, Person]).
 formulate_reply(inform(completed(deliver(Object, Person))), _, Text) :-
     format(string(Text), "I delivered the ~w to ~w.", [Object, Person]).
+formulate_reply(refuse_harm(Verb), _, Text) :-
+    format(string(Text), "I will not ~w anything or anyone. That could cause harm.", [Verb]).
+formulate_reply(acknowledge_decline(deliver(Object, _)), _, Text) :-
+    format(string(Text), "All right, I will not bring the ~w.", [Object]).
+formulate_reply(acknowledge_decline(unspecified), _, "All right, I will not do that.").
+formulate_reply(not_understood(_), _, "I do not know how to do that yet.").
 formulate_reply(refuse(Reason), _, Text) :-
     format(string(Text), "I cannot do that safely: ~w.", [Reason]).
 formulate_reply(inform(status(Text0)), _, Text0).
