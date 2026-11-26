@@ -87,6 +87,9 @@ reply_action(answer(location(Object, _), _), say(user, answer(location(Object)))
 reply_action(answer(location_unknown(Object)), say(user, answer(location(Object)))).
 reply_action(ask_clarification(Category, Candidates), say(user, ask_clarification(Category, Candidates))).
 reply_action(confirm(deliver(Object, Person)), say(Person, confirm(deliver(Object, Person)))).
+reply_action(refuse_harm(Verb), say(user, Text)) :- language:formulate_reply(refuse_harm(Verb), none, Text).
+reply_action(acknowledge_decline(G), say(user, Text)) :- language:formulate_reply(acknowledge_decline(G), none, Text).
+reply_action(not_understood(T), say(user, Text)) :- language:formulate_reply(not_understood(T), none, Text).
 reply_action(Other, say(user, Other)).
 
 diagnostics(Thought, Action, Result, State, diagnostics{thought:Thought, action:Action, result:Result, logs:Logs}) :-

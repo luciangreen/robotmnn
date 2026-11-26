@@ -36,3 +36,13 @@ Run tests:
 ```bash
 swipl -q       -s tests/test_mnn.pl       -s tests/test_thought.pl       -s tests/test_dialogue.pl       -s tests/test_memory.pl       -s tests/test_planning.pl       -s tests/test_tasks.pl       -s tests/test_safety.pl       -s tests/test_learning.pl       -s tests/test_simulator.pl       -s tests/test_integration.pl       -g run_tests,halt
 ```
+
+## Denials, harm and unknown requests
+
+- "Do not bring me the red book" (also "don't", "never", "cancel") is read as a
+  denial: the robot says it will not, and cancels a matching delivery goal.
+- A request using a harmful verb (hit, hurt, kick, push, throw, attack and
+  others) is refused with a reason, and the thought `harm_requested` is
+  recorded, whether or not the robot could otherwise do it.
+- A sentence it cannot read gets the reply "I do not know how to do that yet."
+  instead of silence.

@@ -74,7 +74,26 @@ handle_intent(intent(_, question, location(Object)), State0, State1) :-
     ).
 handle_intent(intent(_, clarify, object(Category, Candidates, deliver)), State0, State1) :-
     set_last_reply(State0, pending(ask_clarification(Category, Candidates)), State1).
+handle_intent(intent(_, harmful_request, Verb), State0, State1) :-
+    add_episode(safety(refused(Verb)), [harm_requested], State0, S1),
+    set_last_reply(S1, pending(refuse_harm(Verb)), State1).
+handle_intent(intent(Speaker, decline, deliver(Object, Speaker)), State0, State1) :-
+    drop_goal(deliver(Object, Speaker), State0, S1),
+    set_last_reply(S1, pending(acknowledge_decline(deliver(Object, Speaker))), State1).
+handle_intent(intent(_, decline, unspecified), State0, State1) :-
+    set_last_reply(State0, pending(acknowledge_decline(unspecified)), State1).
+handle_intent(intent(_, statement, Text), State0, State1) :-
+    set_last_reply(State0, pending(not_understood(Text)), State1).
 handle_intent(_, State, State).
+
+% Remove a pending goal the speaker has now declined, if there is one.
+drop_goal(Goal, State0, State1) :-
+    get_goals(State0, Goals),
+    findall(Id, member(goal(Id, Goal, _, _, _), Goals), Ids),
+    foldl(cancel_goal, Ids, State0, State1).
+
+cancel_goal(Id, State0, State1) :-
+    update_goal_status(Id, cancelled, State0, State1).
 
 reply(State0, Reply, State1) :-
     get_last_reply(State0, pending(Goal)), !,
